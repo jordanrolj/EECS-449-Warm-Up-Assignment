@@ -1,0 +1,2 @@
+jaclang==0.7.19
+jac-cloud==0.1.1
