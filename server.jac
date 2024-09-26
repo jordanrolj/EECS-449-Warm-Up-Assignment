@@ -34,8 +34,8 @@ walker interact {
 
 enum ChatType {
     RAG : 'Need to use Retrievable information in specific documents to respond' = "RAG",
-    QA : 'Given context is enough for an answer' = "user_qa",
-    JOKE : 'Need to call an API to find a joke' = "find_joke"
+    QA : 'Given context is enough for an answer' = "QA",
+    JOKE : 'Need to call an API to find a joke' = "JOKE"
 }
 
 node Router {
@@ -94,36 +94,34 @@ node QAChat :Chat: {
     }
 }
 
-node JOKEChat : Chat {
+node JOKEChat : Chat: {
     has chat_type: ChatType = ChatType.JOKE;
 
     can respond with infer entry {
         can 'Respond with a joke and explain it using the LLM'
-        can 'Respond to message using chat_history as context and agent_role as the goal of the agent'
         respond_with_llm(   message:'current message':str,
             chat_history: 'chat history':list[dict],
             agent_role:'role of the agent responding':str
                 ) -> 'response':str by llm();
 
-        # Call to the joke API
-        url = "https://icanhazdadjoke.com/slack"
+     # Call to the joke API to fetch a random dad joke as text
+        url = "https://icanhazdadjoke.com/";
         headers = {
-            "Accept": "application/json"
-        }
+            "Accept": "text/plain"
+        };
         api_response = requests.get(url, headers=headers);
-
         if api_response.status_code == 200 {
-            joke_data = api_response.json()
-            joke_text = joke_data["attachments"][0]["text"]
-            explanation = respond_with_llm(
+            joke_text = api_response.text;
+
+            # Call the LLM to generate an explanation for the joke
+            here.response = respond_with_llm(
                 f"Explain the following joke: {joke_text}",
-                chat_history,  
+                chat_history,
                 "You are an assistant that explains jokes and puns to users."
             );
 
+            # Combine the joke and the explanation
             combined_response = f"Joke: {joke_text}\n\nExplanation: {explanation}";
-
-            # Set the response using the same structure as the other nodes
             here.response = combined_response;
         } 
         else {
