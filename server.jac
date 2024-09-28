@@ -35,7 +35,7 @@ walker interact {
 enum ChatType {
     RAG : 'Need to use Retrievable information in specific documents to respond' = "RAG",
     QA : 'Given context is enough for an answer' = "QA",
-    Greeter : 'Responds to greetings' = "Greeter"
+    JOKEChat : 'Responds to greetings' = "Greeter"
 }
 
 node Router {
@@ -50,14 +50,14 @@ node Chat {
 walker infer {
     has message:str;
     has chat_history: list[dict];
-    has response: str = "";
+
 
     can init_router with `root entry {
         visit [-->](`?Router) else {
             router_node = here ++> Router();
-            router_node ++> GreeterChat();
             router_node ++> RagChat();
             router_node ++> QAChat();
+            router_node ++> JOKEChat();
             visit router_node;
         }
     }
@@ -96,16 +96,36 @@ node QAChat :Chat: {
     }
 }
 
-node GreeterChat :Chat: {
-    has chat_type: ChatType = ChatType.Greeter;
+node JOKEChat : Chat: {
+    has chat_type: ChatType = ChatType.JOKE;
 
     can respond with infer entry {
-        can 'Respond with a greeting in both English and French'
+        can 'Respond with a joke and explain it using the LLM'
         respond_with_llm(   message:'current message':str,
             chat_history: 'chat history':list[dict],
             agent_role:'role of the agent responding':str
                 ) -> 'response':str by llm();
-    here.response = respond_with_llm(here.message, here.chat_history, agent_role="You are a conversation agent that reponds to user greetings in French");
+
+     # Call to the joke API to fetch a random dad joke as text
+     here.response = "Sorry, I couldn't fetch a joke right now. Please try again later.";
+        url = "https://icanhazdadjoke.com/";
+        headers = {
+            "Accept": "text/plain"
+        };
+        api_response = requests.get(url, headers=headers);
+        if api_response.status_code == 200 {
+            joke_text = api_response.text;
+
+            # Call the LLM to generate an explanation for the joke
+            here.response = f"Joke: {joke_text}\n\nExplanation: {respond_with_llm(
+                f"Explain the following joke: {joke_text}",
+                chat_history,
+                "You are an assistant that explains jokes and puns to users."
+            )}";
+        } 
+        else {
+            here.response = "Sorry, I couldn't fetch a joke right now. Please try again later.";
+        }
     }
 }
 
